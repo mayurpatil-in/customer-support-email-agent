@@ -17,6 +17,8 @@ def should_route_to_human(state: AgentState):
         return "human_review"
     return "send_email"
 
+from langgraph.checkpoint.memory import MemorySaver
+
 def build_graph():
     workflow = StateGraph(AgentState)
 
@@ -47,8 +49,11 @@ def build_graph():
     workflow.add_edge("human_review", "send_email")
     workflow.add_edge("send_email", END)
 
-    # Compile the graph
-    app = workflow.compile()
+    # Setup Memory checkpointer for interruptions
+    memory = MemorySaver()
+
+    # Compile the graph with a breakpoint
+    app = workflow.compile(checkpointer=memory, interrupt_before=["human_review"])
     
     return app
 

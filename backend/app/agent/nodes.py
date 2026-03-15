@@ -33,19 +33,29 @@ def categorize_email_node(state: AgentState) -> dict:
 
 def search_knowledge_base_node(state: AgentState) -> dict:
     """
-    Searches the FAISS vector store for relevant information.
+    Searches the FAISS vector store for relevant information using an LLM-optimized query.
     """
     logger.info("--- SEARCHING KNOWLEDGE BASE ---")
     
-    # Construct a search query. We can use the category, subject, and body for max context.
     category = state.get("category", "")
     subject = state.get("email_subject", "")
     body = state.get("email_body", "")
     
-    search_query = f"Category: {category}\nSubject: {subject}\nBody: {body}"
+    # Use LLM to formulate a clean search query
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", "You are an expert search query generator. "
+                   "Given the customer's email and category, write a short, concise search query "
+                   "to retrieve the most relevant information from a knowledge base vector store. "
+                   "Output ONLY the search query text, without quotes or preamble."),
+        ("user", f"Category: {category}\nSubject: {subject}\nBody: {body}")
+    ])
+    
+    query_chain = prompt | llm
+    optimized_query = query_chain.invoke({}).content
+    logger.info(f"Optimized Search Query: {optimized_query}")
     
     # Hit the local FAISS DB for top 2 closest documents
-    kb_info = search_documents(search_query, k=2)
+    kb_info = search_documents(optimized_query, k=2)
         
     return {"kb_info": kb_info}
 
